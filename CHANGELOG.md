@@ -6,6 +6,4 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Initial release copied from https://github.com/stackabletech/opa-operator repository ([#1])
-
-[#1]: https://github.com/stackabletech/opa-bundle-builder/pull/1
+- Initial release copied from https://github.com/stackabletech/opa-operator repository
