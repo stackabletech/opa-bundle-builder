@@ -1,0 +1,9 @@
+tests/ansible/roles/
+tests/_work/
+debug/
+target/
+**/*.rs.bk
+
+.idea/
+*.iws
+*.iml
