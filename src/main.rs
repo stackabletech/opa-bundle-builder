@@ -5,8 +5,7 @@ use stackable_operator::{
     client, error,
     k8s_openapi::api::core::v1::ConfigMap,
     kube::{
-        api::ListParams,
-        runtime::{controller::Action, Controller},
+        runtime::{controller::Action, watcher, Controller},
         Api,
     },
     logging::{
@@ -85,7 +84,7 @@ async fn main() -> Result<(), error::Error> {
 
             let controller = Controller::new(
                 configmaps_api,
-                ListParams::default().labels(&format!("{OPERATOR_NAME}/bundle")),
+                watcher::Config::default().labels(&format!("{OPERATOR_NAME}/bundle")),
             )
             .run(
                 update_bundle,
