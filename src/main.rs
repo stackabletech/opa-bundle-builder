@@ -183,7 +183,7 @@ async fn update_bundle(bundle: Arc<ConfigMap>, ctx: Arc<Ctx>) -> Result<Action, 
             tar_builder.finish().context(CreateBundleTarFailedSnafu)?;
 
             let dest_path = Path::new(active).join(Path::new(BUNDLE_NAME));
-            rename(&Path::new(&tmp_bundle_path), &dest_path).context(OpaBundleDirSnafu)?;
+            rename(Path::new(&tmp_bundle_path), dest_path).context(OpaBundleDirSnafu)?;
         }
         None => tracing::error!("empty config map {}", name),
     }
