@@ -13,7 +13,7 @@ stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git",
 
 futures = { version = "0.3", features = ["compat"] }
 semver = "1.0"
-snafu = "0.7.4"
+snafu = "0.7"
 strum = { version = "0.24", features = ["derive"] }
 tokio = { version = "1.24", features = ["full"] }
 tracing = "0.1"
