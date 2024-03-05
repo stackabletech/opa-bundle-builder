@@ -13,7 +13,7 @@ on:
   pull_request:
 
 env:
-  RUST_TOOLCHAIN_VERSION: "1.68.2"
+  RUST_TOOLCHAIN_VERSION: "1.76.0"
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: '0'
   CARGO_PROFILE_DEV_DEBUG: '0'
@@ -33,19 +33,21 @@ jobs:
       RUSTC_BOOTSTRAP: 1
     steps:
       - name: Install host dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install protobuf-compiler krb5-user libkrb5-dev libclang-dev liblzma-dev libssl-dev pkg-config
-      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: awalsh128/cache-apt-pkgs-action@44c33b32f808cdddd5ac0366d70595ed63661ed8 # v1.3.1
+        with:
+          packages: protobuf-compiler krb5-user libkrb5-dev libclang-dev liblzma-dev libssl-dev pkg-config
+          version: 1.0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@be73d7920c329f220ce78e0234b8f96b7ae60248
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
-      - uses: Swatinem/rust-cache@359a70e43a0bb8a13953b04a90f76428b4959bb6 # v2.2.0
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8 # v2.7.1
         with:
           key: udeps
-      - run: cargo install cargo-udeps
+          cache-all-crates: "true"
+      - uses: stackabletech/cargo-install-action@cargo-udeps
       - run: cargo udeps --workspace
 
   run_cargodeny:
@@ -61,10 +63,10 @@ jobs:
     continue-on-error: ${{ matrix.checks == 'advisories' }}
 
     steps:
-      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: recursive
-      - uses: EmbarkStudios/cargo-deny-action@8a8607bd8e2b3a514d5a40174cc7c55b229d9ba7 # v1.4.0
+      - uses: EmbarkStudios/cargo-deny-action@1e59595bed8fc55c969333d08d7817b36888f0c5 # v1.5.5
         with:
           command: check ${{ matrix.checks }}
 
@@ -72,10 +74,10 @@ jobs:
     name: Run Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@be73d7920c329f220ce78e0234b8f96b7ae60248
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
           components: rustfmt
@@ -86,51 +88,57 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install host dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install protobuf-compiler krb5-user libkrb5-dev libclang-dev liblzma-dev libssl-dev pkg-config
-      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: awalsh128/cache-apt-pkgs-action@44c33b32f808cdddd5ac0366d70595ed63661ed8 # v1.3.1
+        with:
+          packages: protobuf-compiler krb5-user libkrb5-dev libclang-dev liblzma-dev libssl-dev pkg-config
+          version: 1.0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@1.68.2
+      - uses: dtolnay/rust-toolchain@be73d7920c329f220ce78e0234b8f96b7ae60248
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
           components: clippy
-      - uses: Swatinem/rust-cache@359a70e43a0bb8a13953b04a90f76428b4959bb6 # v2.2.0
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8 # v2.7.1
         with:
           key: clippy
+          cache-all-crates: "true"
       - name: Run clippy action to produce annotations
+        uses: giraffate/clippy-action@13b9d32482f25d29ead141b79e7e04e7900281e0 # v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        uses: actions-rs/clippy-check@b5b5f21f4797c02da247df37026fcd0a5024aa4d # renovate: tag=v1.0.7
         if: env.GITHUB_TOKEN != null
         with:
-          args: --all-targets -- -D warnings
-          token: ${{ secrets.GITHUB_TOKEN }}
+          clippy_flags: --all-targets -- -D warnings
+          reporter: 'github-pr-review'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run clippy manually without annotations
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         if: env.GITHUB_TOKEN == null
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --color never -q --all-targets -- -D warnings
 
   run_rustdoc:
     name: Run RustDoc
     runs-on: ubuntu-latest
     steps:
       - name: Install host dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install protobuf-compiler krb5-user libkrb5-dev libclang-dev liblzma-dev libssl-dev pkg-config
-      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: awalsh128/cache-apt-pkgs-action@44c33b32f808cdddd5ac0366d70595ed63661ed8 # v1.3.1
+        with:
+          packages: protobuf-compiler krb5-user libkrb5-dev libclang-dev liblzma-dev libssl-dev pkg-config
+          version: 1.0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@be73d7920c329f220ce78e0234b8f96b7ae60248
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
           components: rustfmt
-      - uses: Swatinem/rust-cache@359a70e43a0bb8a13953b04a90f76428b4959bb6 # v2.2.0
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8 # v2.7.1
         with:
           key: doc
+          cache-all-crates: "true"
       - run: cargo doc --document-private-items
 
   run_tests:
@@ -138,16 +146,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install host dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install protobuf-compiler krb5-user libkrb5-dev libclang-dev liblzma-dev libssl-dev pkg-config
-      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: awalsh128/cache-apt-pkgs-action@44c33b32f808cdddd5ac0366d70595ed63661ed8 # v1.3.1
+        with:
+          packages: protobuf-compiler krb5-user libkrb5-dev libclang-dev liblzma-dev libssl-dev pkg-config
+          version: 1.0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: recursive
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@be73d7920c329f220ce78e0234b8f96b7ae60248
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN_VERSION }}
-      - uses: Swatinem/rust-cache@359a70e43a0bb8a13953b04a90f76428b4959bb6 # v2.2.0
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8 # v2.7.1
         with:
           key: test
+          cache-all-crates: "true"
       - run: cargo test
