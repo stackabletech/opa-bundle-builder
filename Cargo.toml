@@ -11,16 +11,16 @@ publish = false
 [dependencies]
 stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "stackable-operator-0.67.0" }
 
-flate2 = "1.0"
-futures = { version = "0.3", features = ["compat"] }
-pin-project = "1.0"
-semver = "1.0"
-snafu = "0.8"
-strum = { version = "0.26", features = ["derive"] }
-tar = "0.4"
-tokio = { version = "1.29", features = ["full"] }
-tracing = "0.1"
-warp = "0.3"
+flate2 = "1.0.30"
+futures = { version = "0.3.30", features = ["compat"] }
+pin-project = "1.1.5"
+semver = "1.0.23"
+snafu = "0.8.2"
+strum = { version = "0.26.2", features = ["derive"] }
+tar = "0.4.40"
+tokio = { version = "1.37.0", features = ["full"] }
+tracing = "0.1.40"
+warp = "0.3.7"
 
 [dev-dependencies]
 tempfile = "3.10"
