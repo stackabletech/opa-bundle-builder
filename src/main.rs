@@ -35,7 +35,7 @@ const BUNDLE_BUILDER_CONTROLLER_NAME: &str = "bundlebuilder";
 pub enum Error {
     #[snafu(display("unable to create stackable-operator client"))]
     CreateClient {
-        source: stackable_operator::client::Error
+        source: stackable_operator::client::Error,
     },
 }
 
@@ -90,7 +90,9 @@ async fn main() -> Result<()> {
         TracingTarget::None,
     );
 
-    let client = client::create_client(Some(OPERATOR_NAME.to_string())).await.context(CreateClientSnafu)?;
+    let client = client::create_client(Some(OPERATOR_NAME.to_string()))
+        .await
+        .context(CreateClientSnafu)?;
 
     match env::var(WATCH_NAMESPACE_ENV) {
         Ok(namespace) => {
@@ -125,8 +127,7 @@ async fn main() -> Result<()> {
         }
         Err(_) => {
             tracing::error!(
-                "missing namespace to watch. Env var {WATCH_NAMESPACE_ENV:?} is probably not defined",
-                
+                "missing namespace to watch. Env var {WATCH_NAMESPACE_ENV:?} is probably not defined"
             );
         }
     }
@@ -186,10 +187,9 @@ async fn update_bundle(bundle: Arc<ConfigMap>, ctx: Arc<Ctx>) -> Result<Action, 
             }
 
             let tmp_bundle_path = format!("{tmp}/{BUNDLE_NAME}");
-            let tar_gz =
-                File::create(&tmp_bundle_path).with_context(|_| CreateBundleSnafu {
-                    path: tmp_bundle_path.to_string(),
-                })?;
+            let tar_gz = File::create(&tmp_bundle_path).with_context(|_| CreateBundleSnafu {
+                path: tmp_bundle_path.to_string(),
+            })?;
             let gz_encoder = GzEncoder::new(tar_gz, Compression::best());
             let mut tar_builder = Builder::new(gz_encoder);
 
@@ -218,14 +218,11 @@ mod tests {
         sync::Arc,
     };
 
-    use stackable_operator::builder::{
-        configmap::ConfigMapBuilder,
-        meta::ObjectMetaBuilder
-    };
+    use stackable_operator::builder::{configmap::ConfigMapBuilder, meta::ObjectMetaBuilder};
     use tempfile::TempDir;
 
-    use crate::Ctx;
     use super::update_bundle;
+    use crate::Ctx;
 
     #[test]
     pub fn test_update_bundle() {
