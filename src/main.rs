@@ -1,8 +1,17 @@
+use std::{
+    env,
+    fs::{create_dir_all, rename, File},
+    io::prelude::*,
+    path::Path,
+    sync::Arc,
+    time::Duration,
+};
+
 use flate2::{write::GzEncoder, Compression};
 use futures::{FutureExt, StreamExt};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
-    client, error,
+    client,
     k8s_openapi::api::core::v1::ConfigMap,
     kube::{
         runtime::{controller::Action, watcher, Controller},
@@ -13,45 +22,52 @@ use stackable_operator::{
         TracingTarget,
     },
 };
-use std::{
-    env,
-    fs::{create_dir_all, rename, File},
-    io::prelude::*,
-    path::Path,
-    sync::Arc,
-    time::Duration,
-};
 use strum::{EnumDiscriminants, IntoStaticStr};
 use tar::Builder;
 use warp::Filter;
 
+type Result<T, E = Error> = std::result::Result<T, E>;
+
 const OPERATOR_NAME: &str = "opa.stackable.tech";
 const BUNDLE_BUILDER_CONTROLLER_NAME: &str = "bundlebuilder";
 
-#[derive(Snafu, Debug, EnumDiscriminants)]
+#[derive(Debug, Snafu)]
+pub enum Error {
+    #[snafu(display("unable to create stackable-operator client"))]
+    CreateClient {
+        source: stackable_operator::client::Error,
+    },
+}
+
+#[derive(Debug, EnumDiscriminants, Snafu)]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
-pub enum Error {
+pub enum ControllerError {
     #[snafu(display("opa bundle has no name"))]
     OpaBundleHasNoName,
+
     #[snafu(display("opa bundle dir error"))]
     OpaBundleDir { source: std::io::Error },
+
     #[snafu(display("missing namespace to watch"))]
     MissingWatchNamespace,
-    #[snafu(display("could not create [{path}]"))]
-    CreateBundleFailed {
+
+    #[snafu(display("could not create {path:?}"))]
+    CreateBundle {
         source: std::io::Error,
         path: String,
     },
+
     #[snafu(display("could not create bundle tar"))]
-    CreateBundleTarFailed { source: std::io::Error },
+    CreateBundleTar { source: std::io::Error },
+
     #[snafu(display("could not append to bundle tar"))]
-    AppendToBundleTarFailed { source: std::io::Error },
+    AppendToBundleTar { source: std::io::Error },
 }
 
-impl ReconcilerError for Error {
+impl ReconcilerError for ControllerError {
     fn category(&self) -> &'static str {
-        ErrorDiscriminants::from(self).into()
+        ControllerErrorDiscriminants::from(self).into()
     }
 }
 pub struct Ctx {
@@ -67,14 +83,16 @@ const BUNDLES_TMP_DIR: &str = "/bundles/tmp";
 const BUNDLE_NAME: &str = "bundle.tar.gz";
 
 #[tokio::main]
-async fn main() -> Result<(), error::Error> {
+async fn main() -> Result<()> {
     stackable_operator::logging::initialize_logging(
         "OPA_BUNDLE_BUILDER_LOG",
         "opa-bundle-builder",
         TracingTarget::None,
     );
 
-    let client = client::create_client(Some(OPERATOR_NAME.to_string())).await?;
+    let client = client::create_client(Some(OPERATOR_NAME.to_string()))
+        .await
+        .context(CreateClientSnafu)?;
 
     match env::var(WATCH_NAMESPACE_ENV) {
         Ok(namespace) => {
@@ -109,8 +127,7 @@ async fn main() -> Result<(), error::Error> {
         }
         Err(_) => {
             tracing::error!(
-                "Missing namespace to watch. Env var [{}] is probably not defined.",
-                WATCH_NAMESPACE_ENV
+                "missing namespace to watch. Env var {WATCH_NAMESPACE_ENV:?} is probably not defined"
             );
         }
     }
@@ -145,7 +162,7 @@ fn make_web_server() -> futures::future::IntoStream<impl futures::Future<Output 
 /// before being moved to to [`BUNDLES_ACTIVE_DIR`]/bundle.tar.gz for serving.
 ///
 /// The root of the tar file is always "bundles".
-async fn update_bundle(bundle: Arc<ConfigMap>, ctx: Arc<Ctx>) -> Result<Action, Error> {
+async fn update_bundle(bundle: Arc<ConfigMap>, ctx: Arc<Ctx>) -> Result<Action, ControllerError> {
     let name = bundle
         .metadata
         .name
@@ -170,17 +187,16 @@ async fn update_bundle(bundle: Arc<ConfigMap>, ctx: Arc<Ctx>) -> Result<Action, 
             }
 
             let tmp_bundle_path = format!("{tmp}/{BUNDLE_NAME}");
-            let tar_gz =
-                File::create(&tmp_bundle_path).with_context(|_| CreateBundleFailedSnafu {
-                    path: tmp_bundle_path.to_string(),
-                })?;
+            let tar_gz = File::create(&tmp_bundle_path).with_context(|_| CreateBundleSnafu {
+                path: tmp_bundle_path.to_string(),
+            })?;
             let gz_encoder = GzEncoder::new(tar_gz, Compression::best());
             let mut tar_builder = Builder::new(gz_encoder);
 
             tar_builder
                 .append_dir_all("bundles", incoming)
-                .context(AppendToBundleTarFailedSnafu)?;
-            tar_builder.finish().context(CreateBundleTarFailedSnafu)?;
+                .context(AppendToBundleTarSnafu)?;
+            tar_builder.finish().context(CreateBundleTarSnafu)?;
 
             let dest_path = Path::new(active).join(Path::new(BUNDLE_NAME));
             rename(Path::new(&tmp_bundle_path), dest_path).context(OpaBundleDirSnafu)?;
@@ -191,22 +207,22 @@ async fn update_bundle(bundle: Arc<ConfigMap>, ctx: Arc<Ctx>) -> Result<Action, 
     Ok(Action::await_change())
 }
 
-pub fn error_policy<T>(_obj: Arc<T>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
+pub fn error_policy<T>(_obj: Arc<T>, _error: &ControllerError, _ctx: Arc<Ctx>) -> Action {
     Action::requeue(Duration::from_secs(5))
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Ctx;
+    use std::{
+        fs::{create_dir, metadata},
+        sync::Arc,
+    };
+
+    use stackable_operator::builder::{configmap::ConfigMapBuilder, meta::ObjectMetaBuilder};
+    use tempfile::TempDir;
 
     use super::update_bundle;
-
-    use std::fs::create_dir;
-    use std::fs::metadata;
-    use std::sync::Arc;
-
-    use stackable_operator::builder::{ConfigMapBuilder, ObjectMetaBuilder};
-    use tempfile::TempDir;
+    use crate::Ctx;
 
     #[test]
     pub fn test_update_bundle() {

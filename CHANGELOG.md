@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2024-05-13
+
+- Dependency updates and CI improvements ([#20]).
+
+[#20]: https://github.com/stackabletech/opa-bundle-builder/pull/20  
+
 ## [1.1.1] - 2024-03-05
 
 ### Changed
