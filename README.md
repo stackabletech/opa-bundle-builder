@@ -1,12 +1,17 @@
 # Stackable OPA Bundle Builder
 
-This is a helper utility for the Stackable Operator for [OPA](https://www.openpolicyagent.org/). 
+This is a helper utility for the Stackable Operator for [OPA](https://www.openpolicyagent.org/).
+
+## DEPRECATED
+
+This functionality has been moved into the [Stackable Operator for OPA](https://github.com/stackabletech/opa-operator/tree/main/rust/bundle-builder). It is still used by some supported versions of the
+Stackable Data Platform, but will not be supported anymore outside of that context.
 
 ## Purpose
 
-The sole purpose of the OPA Bundle Builder is to convert user created `ConfigMaps` containing [Rego](https://www.openpolicyagent.org/docs/latest/policy-language/) rules into bundles (`tar.gz` files) and make them available as an HTTP endpoint. The Bundle Builder runs in a side container of the OPA `Pod` managed by the [Stackable Operator for OPA](https://docs.stackable.tech/opa/nightly/index.html) as a simple HTTP server that OPA is querying regularly (every 20 to 30 seconds) for updates. 
+The sole purpose of the OPA Bundle Builder is to convert user created `ConfigMaps` containing [Rego](https://www.openpolicyagent.org/docs/latest/policy-language/) rules into bundles (`tar.gz` files) and make them available as an HTTP endpoint. The Bundle Builder runs in a side container of the OPA `Pod` managed by the [Stackable Operator for OPA](https://docs.stackable.tech/opa/nightly/index.html) as a simple HTTP server that OPA is querying regularly (every 20 to 30 seconds) for updates.
 
-This allows users to add, update or delete Rego rules on-the-fly in Kubernetes. 
+This allows users to add, update or delete Rego rules on-the-fly in Kubernetes.
 
 ## Notes
 
