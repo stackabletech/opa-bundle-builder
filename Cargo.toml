@@ -18,7 +18,7 @@ semver = "1.0"
 snafu = "0.8"
 strum = { version = "0.26", features = ["derive"] }
 tar = "0.4"
-tokio = { version = "1.37", features = ["full"] }
+tokio = { version = "1.38", features = ["full"] }
 tracing = "0.1"
 warp = "0.3"
 
